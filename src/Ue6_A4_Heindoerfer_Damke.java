@@ -1,25 +1,33 @@
 import java.awt.event.KeyEvent;
+import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.function.Consumer;
+import java.util.function.BiFunction;
 
 import com.jogamp.opengl.GL2;
 import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLException;
 import com.jogamp.opengl.math.VectorUtil;
+import com.jogamp.opengl.util.texture.Texture;
+import com.jogamp.opengl.util.texture.TextureIO;
 
 
-public class Ue5_A5_Heindoerfer_Damke extends Jogl2Template {	
+public class Ue6_A4_Heindoerfer_Damke extends Jogl2Template {	
 	public class Letter {
 		public float[][] verts;
 		public int[][] quads;
 		public float[][] normals;
-		public float[] material;
+		public float[][] colors;
+		public float[][][] texture;
 		
-		public Letter(float[][] verts, int[][] quads, float[] material) {
+		public Letter(float[][] verts, int[][] quads, BiFunction<float[], Integer, float[]> textureMapper) {
 			this.verts = deepen(verts);
 			this.quads = cleanUp(quads);
 			this.normals = calculateNormals();
-			this.material = material;
+			this.colors = calculateColors();
+			this.texture = calculateTexture(textureMapper);
 		}
 		
 		private float[][] deepen(float[][] f) {
@@ -57,8 +65,37 @@ public class Ue5_A5_Heindoerfer_Damke extends Jogl2Template {
 			return normals;
 		}
 		
+		private float[][] calculateColors() {
+			float[][] colors = new float[quads.length][3];
+			
+			for(int i = 0; i< quads.length; i++) {
+				float[] normal = normals[i];
+				
+				colors[i] = new float[] {
+					(1 + normal[0]) / 2,
+					(1 + normal[1]) / 2,
+					(1 + normal[2]) / 2
+				};
+			}
+			
+			return colors;
+		}
+		
+		private float[][][] calculateTexture(BiFunction<float[], Integer, float[]> textureMapper) {
+			float[][][] texture = new float[quads.length][4][2];
+			
+			for(int i = 0; i < quads.length; i++) {
+				int[] quad = quads[i];
+				
+				for(int j = 0; j < 4; j++)
+					texture[i][j] = textureMapper.apply(verts[quad[j]], j);
+			}
+			
+			return texture;
+		}
+		
 		public void draw(GL2 gl) {
-			drawVertexIndexList(gl, verts, quads, normals, material);
+			drawVertexIndexList(gl, verts, quads, normals, colors, texture);
 		}
 	}
 	
@@ -67,42 +104,44 @@ public class Ue5_A5_Heindoerfer_Damke extends Jogl2Template {
 	private boolean smooth = true;
 	private char[] letterOrder = new char[] {'j', 'h', 'c', 'd'};
 	private HashMap<Character, Letter> letters = new HashMap<>();
+	private Texture texture;
 	
-	float[] BRASS_MATERIAL = {
-		0.33f, 0.22f, 0.03f, 1.0f,
-		0.78f, 0.57f, 0.11f, 1.0f,
-		0.99f, 0.91f, 0.81f, 1.0f,
-		5.0f
+	BiFunction<float[], Integer, float[]> mapperA = (vert, i) -> {
+		switch(i) {
+		case 0: return new float[] { 0, 0 };
+		case 1: return new float[] { 1, 0 };
+		case 2: return new float[] { 1, 1 };
+		case 3: return new float[] { 0, 1 };
+		}
+		
+		return null;
 	};
-	
-	float[] REDPLASTIC_MATERIAL = {
-		0.3f, 0.0f, 0.0f, 1.0f,
-		0.6f, 0.0f, 0.0f, 1.0f,
-		0.8f, 0.4f, 0.4f, 1.0f,
-		10.0f
+
+	BiFunction<float[], Integer, float[]> mapperB = (vert, i) -> {
+		return new float[] { (vert[0] + 5) / 10, (vert[1] + 5) / 10 };
 	};
 	
 	public static void main(String[] args) {
-		Ue5_A5_Heindoerfer_Damke template = new Ue5_A5_Heindoerfer_Damke();
+		Ue6_A4_Heindoerfer_Damke template = new Ue6_A4_Heindoerfer_Damke();
 		template.setVisible(true);
 	}
 	
-	public static void drawVertexIndexList(GL2 gl, float[][] verts, int[][] quads, float[][] normals, float[] material) {
+	public static void drawVertexIndexList(GL2 gl, float[][] verts, int[][] quads, float[][] normals, float[][] colors, float[][][] texture) {
 		gl.glBegin(GL2.GL_QUADS);
-		
-		gl.glMaterialfv(GL2.GL_FRONT, GL2.GL_AMBIENT, Arrays.copyOfRange(material, 0, 3), 0);
-		gl.glMaterialfv(GL2.GL_FRONT, GL2.GL_DIFFUSE, Arrays.copyOfRange(material, 4, 7), 0);
-		gl.glMaterialfv(GL2.GL_FRONT, GL2.GL_SPECULAR, Arrays.copyOfRange(material, 8, 11), 0);
-		gl.glMaterialf(GL2.GL_FRONT, GL2.GL_SHININESS, material[12]);
 		
 		for(int i = 0; i < quads.length; i++) {
 			int[] quad = quads[i];
 			float[] normal = normals[i];
+			float[] color = colors[i];
+			float[][] quadTexture = texture[i];
 			
 			for(int j = 0; j < 4; j++) {
 				float[] v = verts[quad[j]];
+				float[] vTex = quadTexture[j];
 				
 				gl.glNormal3f(normal[0], normal[1], normal[2]);
+				gl.glTexCoord2f(vTex[0], vTex[1]);
+				gl.glColor3f(color[0], color[1], color[2]);
 				gl.glVertex3f(v[0], v[1], v[2]);
 			}
 		}
@@ -113,6 +152,12 @@ public class Ue5_A5_Heindoerfer_Damke extends Jogl2Template {
 	public void init(GLAutoDrawable drawable) {
 		super.init(drawable);
 		setTitle("Initialen");
+		
+		try {
+			texture = TextureIO.newTexture(new File("texture.png"), true);
+		} catch (Exception e) {
+			System.err.println("Loading the texture failed: " + e.getMessage());
+		}
 		
 		letters.put('j', new Letter(new float[][] {
 			{-1f, 5f},
@@ -150,7 +195,7 @@ public class Ue5_A5_Heindoerfer_Damke extends Jogl2Template {
 			{12,10,14,16},
 			{16,14,18,20},
 			{22,24,20,18}
-		}, BRASS_MATERIAL));
+		}, mapperA));
 		
 		letters.put('h', new Letter(new float[][] {
 			{-5f,5f},
@@ -184,7 +229,7 @@ public class Ue5_A5_Heindoerfer_Damke extends Jogl2Template {
 			{2,4,22,24},
 			{10,12,14,16},
 			{6,8,18,20}
-		}, REDPLASTIC_MATERIAL));
+		}, mapperB));
 		
 		letters.put('c', new Letter(new float[][] {
 			{3.54f,3.54f},
@@ -228,7 +273,7 @@ public class Ue5_A5_Heindoerfer_Damke extends Jogl2Template {
 			{10,12,22,24},
 			{12,14,20,22},
 			{14,16,18,20}
-		}, BRASS_MATERIAL));
+		}, mapperA));
 		
 		letters.put('d', new Letter(new float[][] {
 			{-4f,5f},
@@ -274,7 +319,7 @@ public class Ue5_A5_Heindoerfer_Damke extends Jogl2Template {
 			{10,12,26,24},
 			{12,14,28,26},
 			{14,2,16,28}
-		}, REDPLASTIC_MATERIAL));
+		}, mapperB));
 	}
 	
 	public void drawCoordinateSystem(GL2 gl) {
@@ -295,7 +340,7 @@ public class Ue5_A5_Heindoerfer_Damke extends Jogl2Template {
 	}
 	
 	public void addLights(GL2 gl) {
-		gl.glEnable(GL2.GL_LIGHTING);
+		 //gl.glEnable(GL2.GL_LIGHTING);
 		
 		gl.glDisable(GL2.GL_LIGHT0);
 		gl.glDisable(GL2.GL_LIGHT1);
@@ -354,11 +399,21 @@ public class Ue5_A5_Heindoerfer_Damke extends Jogl2Template {
 		
 		super.display(drawable);
 		
+		gl.glDisable(GL2.GL_TEXTURE_2D);
+		
 		drawCoordinateSystem(gl);
-
+		
+		gl.glEnable(GL2.GL_TEXTURE_2D);
+		gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_NEAREST);
+		gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_NEAREST);
+		texture.bind(gl);
+		
+		gl.glTexEnvf(GL2.GL_TEXTURE_ENV, GL2.GL_TEXTURE_ENV_MODE, GL2.GL_MODULATE);
 		transform(gl,
 				translate(-6.5f, 0, 0),
 				letters.get(letterOrder[shownLetter])::draw);
+		
+		gl.glTexEnvf(GL2.GL_TEXTURE_ENV, GL2.GL_TEXTURE_ENV_MODE, GL2.GL_REPLACE);
 		transform(gl,
 				translate(6.5f, 0, 0),
 				letters.get(letterOrder[shownLetter + 1])::draw);
