@@ -112,7 +112,7 @@ public class GLSLShaderObject
         catch (Exception e)
         {
             System.err.println("Error while reading shader file \""+ name + "\"\n");
-            //e.printStackTrace();
+            e.printStackTrace();
         }
         
         //output input of the shader source file

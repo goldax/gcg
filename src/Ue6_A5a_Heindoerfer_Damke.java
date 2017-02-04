@@ -1,30 +1,23 @@
 import java.awt.event.KeyEvent;
-import java.io.File;
 import java.util.HashMap;
 import java.util.function.Consumer;
-import java.util.function.BiFunction;
 
 import com.jogamp.opengl.GL2;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.math.VectorUtil;
-import com.jogamp.opengl.util.texture.Texture;
-import com.jogamp.opengl.util.texture.TextureIO;
 
+import SheetShader.GLSLShaderObject;
 
-public class Ue6_A4_Heindoerfer_Damke extends Jogl2Template {	
+public class Ue6_A5a_Heindoerfer_Damke extends Jogl2Template {	
 	public class Letter {
 		public float[][] verts;
 		public int[][] quads;
 		public float[][] normals;
-		public float[][] colors;
-		public float[][][] texture;
 		
-		public Letter(float[][] verts, int[][] quads, BiFunction<float[], Integer, float[]> textureMapper) {
+		public Letter(float[][] verts, int[][] quads) {
 			this.verts = deepen(verts);
 			this.quads = cleanUp(quads);
 			this.normals = calculateNormals();
-			this.colors = calculateColors();
-			this.texture = calculateTexture(textureMapper);
 		}
 		
 		private float[][] deepen(float[][] f) {
@@ -62,81 +55,35 @@ public class Ue6_A4_Heindoerfer_Damke extends Jogl2Template {
 			return normals;
 		}
 		
-		private float[][] calculateColors() {
-			float[][] colors = new float[quads.length][3];
-			
-			for(int i = 0; i< quads.length; i++) {
-				float[] normal = normals[i];
-				
-				colors[i] = new float[] {
-					(1 + normal[0]) / 2,
-					(1 + normal[1]) / 2,
-					(1 + normal[2]) / 2
-				};
-			}
-			
-			return colors;
-		}
-		
-		private float[][][] calculateTexture(BiFunction<float[], Integer, float[]> textureMapper) {
-			float[][][] texture = new float[quads.length][4][2];
-			
-			for(int i = 0; i < quads.length; i++) {
-				int[] quad = quads[i];
-				
-				for(int j = 0; j < 4; j++)
-					texture[i][j] = textureMapper.apply(verts[quad[j]], j);
-			}
-			
-			return texture;
-		}
-		
 		public void draw(GL2 gl) {
-			drawVertexIndexList(gl, verts, quads, normals, colors, texture);
+			drawVertexIndexList(gl, verts, quads, normals);
 		}
 	}
 	
 	private int shownLetter = 0;
+	private GLSLShaderObject shader;
 	private char[] letterOrder = new char[] {'j', 'h', 'c', 'd'};
 	private HashMap<Character, Letter> letters = new HashMap<>();
-	private Texture texture;
-	
-	BiFunction<float[], Integer, float[]> mapperA = (vert, i) -> {
-		switch(i) {
-		case 0: return new float[] { 0, 0 };
-		case 1: return new float[] { 1, 0 };
-		case 2: return new float[] { 1, 1 };
-		case 3: return new float[] { 0, 1 };
-		}
-		
-		return null;
-	};
-
-	BiFunction<float[], Integer, float[]> mapperB = (vert, i) -> {
-		return new float[] { (vert[0] + 5) / 10, (vert[1] + 5) / 10 };
-	};
+	private float uniform_size = 1;
+	private float[] uniform_color = new float[] { 0.769f, 0.173f, 0.176f, 1 };
 	
 	public static void main(String[] args) {
-		Ue6_A4_Heindoerfer_Damke template = new Ue6_A4_Heindoerfer_Damke();
+		Ue6_A5a_Heindoerfer_Damke template = new Ue6_A5a_Heindoerfer_Damke();
 		template.setVisible(true);
 	}
 	
-	public static void drawVertexIndexList(GL2 gl, float[][] verts, int[][] quads, float[][] normals, float[][] colors, float[][][] texture) {
+	public static void drawVertexIndexList(GL2 gl, float[][] verts, int[][] quads, float[][] normals) {
 		gl.glBegin(GL2.GL_QUADS);
 		
 		for(int i = 0; i < quads.length; i++) {
 			int[] quad = quads[i];
 			float[] normal = normals[i];
-			float[] color = colors[i];
-			float[][] quadTexture = texture[i];
 			
 			for(int j = 0; j < 4; j++) {
 				float[] v = verts[quad[j]];
-				float[] vTex = quadTexture[j];
 				
 				gl.glNormal3f(normal[0], normal[1], normal[2]);
-				gl.glTexCoord2f(vTex[0], vTex[1]);
-				gl.glColor3f(color[0], color[1], color[2]);
+				gl.glColor3f(1, 1, 1);
 				gl.glVertex3f(v[0], v[1], v[2]);
 			}
 		}
@@ -146,19 +93,17 @@ public class Ue6_A4_Heindoerfer_Damke extends Jogl2Template {
 
 	public void init(GLAutoDrawable drawable) {
 		super.init(drawable);
-		setTitle("Initialen");
 		
-		try {
-			GL2 gl = drawable.getGL().getGL2();
-			
-			texture = TextureIO.newTexture(new File("texture.png"), true);
-			
-			gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_NEAREST);
-			gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_NEAREST);
-			texture.bind(gl);
-		} catch (Exception e) {
-			System.err.println("Loading the texture failed: " + e.getMessage());
-		}
+		GL2 gl = drawable.getGL().getGL2();
+		
+		setTitle("Initialen");
+
+		shader = new GLSLShaderObject();
+		shader.loadFragmentShader("cartoon.frag");
+		shader.loadVertexShader("cartoon.vert");
+		shader.init(gl);
+		shader.addUniform(gl, "size", uniform_size);
+		shader.addUniform(gl, "color", uniform_color);
 		
 		letters.put('j', new Letter(new float[][] {
 			{-1f, 5f},
@@ -196,7 +141,7 @@ public class Ue6_A4_Heindoerfer_Damke extends Jogl2Template {
 			{12,10,14,16},
 			{16,14,18,20},
 			{22,24,20,18}
-		}, mapperA));
+		}));
 		
 		letters.put('h', new Letter(new float[][] {
 			{-5f,5f},
@@ -230,7 +175,7 @@ public class Ue6_A4_Heindoerfer_Damke extends Jogl2Template {
 			{2,4,22,24},
 			{10,12,14,16},
 			{6,8,18,20}
-		}, mapperB));
+		}));
 		
 		letters.put('c', new Letter(new float[][] {
 			{3.54f,3.54f},
@@ -274,7 +219,7 @@ public class Ue6_A4_Heindoerfer_Damke extends Jogl2Template {
 			{10,12,22,24},
 			{12,14,20,22},
 			{14,16,18,20}
-		}, mapperA));
+		}));
 		
 		letters.put('d', new Letter(new float[][] {
 			{-4f,5f},
@@ -320,7 +265,7 @@ public class Ue6_A4_Heindoerfer_Damke extends Jogl2Template {
 			{10,12,26,24},
 			{12,14,28,26},
 			{14,2,16,28}
-		}, mapperB));
+		}));
 	}
 	
 	public void drawCoordinateSystem(GL2 gl) {
@@ -359,24 +304,19 @@ public class Ue6_A4_Heindoerfer_Damke extends Jogl2Template {
 
 	public void display(GLAutoDrawable drawable) {
 		GL2 gl = drawable.getGL().getGL2();
-		
+
 		super.display(drawable);
-		
-		gl.glDisable(GL2.GL_TEXTURE_2D);
 		
 		drawCoordinateSystem(gl);
 		
-		gl.glEnable(GL2.GL_TEXTURE_2D);
-		
-		gl.glTexEnvf(GL2.GL_TEXTURE_ENV, GL2.GL_TEXTURE_ENV_MODE, GL2.GL_MODULATE);
+		shader.activate(gl);
 		transform(gl,
 				translate(-6.5f, 0, 0),
 				letters.get(letterOrder[shownLetter])::draw);
-		
-		gl.glTexEnvf(GL2.GL_TEXTURE_ENV, GL2.GL_TEXTURE_ENV_MODE, GL2.GL_REPLACE);
 		transform(gl,
 				translate(6.5f, 0, 0),
 				letters.get(letterOrder[shownLetter + 1])::draw);
+		shader.deactivate(gl);
 	}
 
 	public void keyPressed(KeyEvent e) {
