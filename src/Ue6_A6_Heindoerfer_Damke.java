@@ -9,14 +9,14 @@ import com.jogamp.opengl.math.VectorUtil;
 import SheetShader.GLSLShaderObject;
 import SheetShader.OBJLoader;
 
-public class Ue6_A5c_Heindoerfer_Damke extends Jogl2Template {	
+public class Ue6_A6_Heindoerfer_Damke extends Jogl2Template {	
 	private GLSLShaderObject shader;
-	private float uniform_size = 1;
-	private float[] uniform_color = new float[] { 0.9f, 0.7f, 0.1f, 1 };
+	private float uniform_radius = 4;
+	private float uniform_angle = 0;
 	private int displayList;
 	
 	public static void main(String[] args) {
-		Ue6_A5c_Heindoerfer_Damke template = new Ue6_A5c_Heindoerfer_Damke();
+		Ue6_A6_Heindoerfer_Damke template = new Ue6_A6_Heindoerfer_Damke();
 		template.setVisible(true);
 	}
 
@@ -28,11 +28,10 @@ public class Ue6_A5c_Heindoerfer_Damke extends Jogl2Template {
 		setTitle("Bunny");
 
 		shader = new GLSLShaderObject();
-		shader.loadFragmentShader("cartoon.frag");
-		shader.loadVertexShader("cartoon.vert");
+		shader.loadFragmentShader("Ue6_A6_Heindoerfer_Damke.frag");
+		shader.loadVertexShader("Ue6_A6_Heindoerfer_Damke.vert");
 		shader.init(gl);
-		shader.addUniform(gl, "size", uniform_size);
-		shader.addUniform(gl, "color", uniform_color);
+		shader.addUniform(gl, "radius", uniform_radius);
 		
 		OBJLoader bunny = new OBJLoader("bunny", 5.0f, gl);
 		displayList = bunny.getDisplayList();
@@ -62,6 +61,8 @@ public class Ue6_A5c_Heindoerfer_Damke extends Jogl2Template {
 		
 		drawCoordinateSystem(gl);
 		
+		uniform_angle = (uniform_angle + 0.05f) % ((float) Math.PI * 2);
+		shader.updateUniform(gl, "angle", uniform_angle);
 		shader.activate(gl);
 		gl.glCallList(displayList);
 		shader.deactivate(gl);
