@@ -42,15 +42,15 @@ public class Ue6_A5c_Heindoerfer_Damke extends Jogl2Template {
 		gl.glBegin(gl.GL_LINES);
 		// X:
 		gl.glColor3f(1, 0, 0);
-		gl.glVertex3f(-10, 0, 0);
+		gl.glVertex3f(0, 0, 0);
 		gl.glVertex3f(10, 0, 0);
 		// Y:
 		gl.glColor3f(0, 1, 0);
-		gl.glVertex3f(0, -10, 0);
+		gl.glVertex3f(0, 0, 0);
 		gl.glVertex3f(0, 10, 0);
 		// Z:
 		gl.glColor3f(0, 0, 1);
-		gl.glVertex3f(0, 0, -10);
+		gl.glVertex3f(0, 0, 0);
 		gl.glVertex3f(0, 0, 10);
 		gl.glEnd();
 	}
@@ -61,6 +61,8 @@ public class Ue6_A5c_Heindoerfer_Damke extends Jogl2Template {
 		super.display(drawable);
 		
 		drawCoordinateSystem(gl);
+		
+		gl.glScissor(10, 0, 0, 10);
 		
 		shader.activate(gl);
 		gl.glCallList(displayList);
